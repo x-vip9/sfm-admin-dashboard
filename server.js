@@ -156,7 +156,14 @@ const clientLimiter = rateLimit({windowMs:15*60*1000, max:2000, standardHeaders:
     message: {error:'طلبات كثيرة جداً، حاول لاحقاً'}});
 app.use('/api/', apiLimiter);
 app.use('/client/', clientLimiter);
-app.use(express.static(path.join(__dirname,'public')));
+// لوحة الإدارة انتقلت إلى لوحة تحكم Softora (تعمل عبر /api/* هنا بحساب مدير محفوظ فيها). واجهة الإدارة القديمة
+// مغلقة إلا إن ضُبط ADMIN_UI=open في متغيرات البيئة. /api/* و /client/* (البرنامج والموقع) تبقى تعمل كما هي.
+const ADMIN_UI_OPEN = process.env.ADMIN_UI === 'open';
+const MOVED_HTML = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+  + '<title>انتقلت لوحة الإدارة</title><style>body{font-family:Tahoma,Arial,sans-serif;background:#f1f5f9;color:#0f172a;display:grid;place-items:center;min-height:100vh;margin:0}'
+  + 'main{background:#fff;border-radius:14px;padding:28px 32px;max-width:520px;line-height:1.9;box-shadow:0 4px 20px rgba(0,0,0,.06)}h1{font-size:1.3rem;margin:0 0 8px}</style></head>'
+  + '<body><main><h1>انتقلت لوحة إدارة مدير الملفات الآمن</h1><p>تُدار الآن من لوحة تحكم Softora ← «مدير الملفات الآمن».</p></main></body></html>';
+if (ADMIN_UI_OPEN) app.use(express.static(path.join(__dirname,'public')));
 
 // ═══════════════════════════════════════════════════════════════════
 // نظام صلاحيات متدرّج (RBAC):
@@ -1648,7 +1655,7 @@ app.post('/client/license/verify', clientAuth, (req,res) => {
     res.json({valid:true,plan:lic.plan,planLabel:plans[lic.plan]||lic.plan,email:lic.email,name:lic.name,expires_at:lic.plan==='lifetime'?null:lic.expires_at});
 });
 
-app.get('*', (req,res) => res.sendFile(path.join(__dirname,'public','index.html')));
+app.get('*', (req,res) => ADMIN_UI_OPEN ? res.sendFile(path.join(__dirname,'public','index.html')) : res.status(410).type('html').send(MOVED_HTML));
 // ── بدء التشغيل: نتصل بـ MongoDB أولاً، ولا نبدأ الاستماع للطلبات إلا
 //    بعد نجاح الاتصال — هذا يمنع تقديم صفحات بدون بيانات حقيقية، ويجعل
 //    فشل الاتصال يظهر بوضوح في سجلات Render بدل خادم "يعمل" لكنه فارغ ──
